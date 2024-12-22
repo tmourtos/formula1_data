@@ -1008,9 +1008,9 @@ class LapTimesCollector(F1DataCollector):
                     params = None
 
                     while True:
-                        if offset:
+                        if offset > 0:
                             params = dict()
-                            params['offset'] = 1000
+                            params['offset'] = offset
                         response = self.request.get(target=request_target, parameters=params)
 
                         if response.status == 200:
@@ -1018,11 +1018,6 @@ class LapTimesCollector(F1DataCollector):
                             mr_data = data['MRData']
                             race_table = mr_data['RaceTable']
                             races = race_table['Races']
-                            if races:
-                                current_round += 1
-                            else:
-                                current_round = None
-                                max_round = None
                             for race in races:
                                 for race_lap in race['Laps']:
                                     for timing in race_lap['Timings']:
@@ -1034,13 +1029,11 @@ class LapTimesCollector(F1DataCollector):
                                             try:
                                                 lap_time = datetime.strptime(timing['time'], '%M:%S.%f').time()
                                                 lap_row.milliseconds = (lap_time.minute * 60000) + (
-                                                        lap_time.second * 1000) + (
-                                                                               lap_time.microsecond / 1000)
+                                                        lap_time.second * 1000) + (lap_time.microsecond / 1000)
                                             except ValueError as error:
                                                 lap_time = datetime.strptime(timing['time'], '%H:%M:%S.%f').time()
                                                 lap_row.milliseconds = (lap_time.hour * 3600000) + (
-                                                        lap_time.minute * 60000) + (
-                                                                               lap_time.second * 1000) + (
+                                                        lap_time.minute * 60000) + (lap_time.second * 1000) + (
                                                                                lap_time.microsecond / 1000)
                                         lap_row.lap = race_lap['number']
                                         lap_row.year = race['season']
@@ -1051,7 +1044,13 @@ class LapTimesCollector(F1DataCollector):
                             total_rows = int(mr_data.get('total', 0))
                             batch_size = int(mr_data.get('limit', 0))
                             offset = offset + batch_size
+
                             if offset > total_rows:
+                                if offset:
+                                    current_round += 1
+                                if total_rows == 0:
+                                    current_round = None
+                                    max_round = None
                                 break
 
     def _store_laps_data(self):
@@ -1273,3 +1272,32 @@ class SprintResultsCollector(F1DataCollector):
         :return: The query response
         """
         return self.azure_db.insert(table_name='sprint_results', data=self.sprint_results_data)
+
+
+if __name__ == '__main__':
+    seasons_data = SeasonCollector()
+    seasons_data.run()
+    drivers_data = DriverCollector()
+    drivers_data.run()
+    constructors_data = ConstructorCollector()
+    constructors_data.run()
+    status_data = StatusCollector()
+    status_data.run()
+    circuits_data = CircuitCollector()
+    circuits_data.run()
+    races_data = RaceCollector()
+    races_data.run()
+    driver_standings_data = DriverStandingsCollector()
+    driver_standings_data.run()
+    constructor_standings_data = ConstructorStandingsCollector()
+    constructor_standings_data.run()
+    qualifying_data = QualifyingCollector()
+    qualifying_data.run()
+    pit_stops_data = PitStopsCollector()
+    pit_stops_data.run()
+    laps_data = LapTimesCollector()
+    laps_data.run()
+    results_data = ResultsCollector()
+    results_data.run()
+    sprint_results_data = SprintResultsCollector()
+    sprint_results_data.run()
